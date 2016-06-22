@@ -9,7 +9,7 @@ import Data.Functor.Classes
 data Type
   = UnitT          -- ^ unit type
   | Arr Type Type  -- ^ function type
-  deriving (Eq)
+  deriving (Eq,Show)
 
 -- terms which can Synthesize their type
 data STerm a
@@ -17,13 +17,13 @@ data STerm a
   | Ann (CTerm STerm a) Type       -- ^ type annotation
   | UnitV                          -- ^ the only value of type UnitT
   | App (STerm a) (CTerm STerm a)  -- ^ function application
-  deriving (Eq,Functor,Foldable,Traversable)
+  deriving (Eq,Show,Functor,Foldable,Traversable)
 
 -- terms which are Checked against a type
 data CTerm sTerm a
   = STerm (sTerm a)
   | Lam (Scope () sTerm a) -- ^ lambda abstraction
-  deriving (Eq,Functor,Foldable,Traversable)
+  deriving (Eq,Show,Functor,Foldable,Traversable)
 
 
 instance Applicative STerm where
@@ -52,3 +52,36 @@ instance (Eq1 sTerm, Monad sTerm) => Eq1 (CTerm sTerm) where
   liftEq eq (STerm x1) (STerm x2) = liftEq eq x1 x2
   liftEq eq (Lam x1)   (Lam x2)   = liftEq eq x1 x2
   liftEq _  _          _          = False
+
+
+instance Show1 STerm where
+  liftShowsPrec sp sl = go
+    where
+      go d (Var v)   = showParen (d > app_prec)
+                     $ showString "Var "
+                     . sp (app_prec+1) v
+      go d (Ann x t) = showParen (d > app_prec)
+                     $ showString "Ann "
+                     . liftShowsPrec sp sl (app_prec+1) x
+                     . showString " "
+                     . showsPrec (app_prec+1) t
+      go _ UnitV     = showString "UnitV"
+      go d (App x y) = showParen (d > app_prec)
+                     $ showString "App "
+                     . go (app_prec+1) x
+                     . showString " "
+                     . liftShowsPrec sp sl (app_prec+1) y
+      
+      app_prec = 10
+
+instance Show1 sTerm => Show1 (CTerm sTerm) where
+  liftShowsPrec sp sl = go
+    where
+      go d (STerm x) = showParen (d > app_prec)
+                     $ showString "STerm "
+                     . liftShowsPrec sp sl (app_prec+1) x
+      go d (Lam x)   = showParen (d > app_prec)
+                     $ showString "Lam "
+                     . liftShowsPrec sp sl (app_prec+1) x
+      
+      app_prec = 10
