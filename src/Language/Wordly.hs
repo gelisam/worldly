@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, ScopedTypeVariables, ViewPatterns #-}
 module Language.Wordly where
 
 import Bound
@@ -85,3 +85,28 @@ instance Show1 sTerm => Show1 (CTerm sTerm) where
                      . liftShowsPrec sp sl (app_prec+1) x
       
       app_prec = 10
+
+
+bAbstract :: forall f a b c. Monad f
+          => (a -> Maybe b)
+          -> Scope c f a
+          -> Scope c (Scope b f) a
+bAbstract f = toScope . toScope . fmap go . fromScope
+  where
+    go :: Var c a -> Var b (Var c a)
+    go (F (f -> Just b)) = B b
+    go v                 = F v
+
+
+cAbstract :: forall sTerm a b. (Monad sTerm)
+          => (a -> Maybe b)
+          -> CTerm sTerm a
+          -> CTerm (Scope b sTerm) a
+cAbstract f (STerm x) = STerm (abstract f x)
+cAbstract f (Lam x)   = Lam (bAbstract f x)
+
+cAbstract1 :: (Monad sTerm, Eq a)
+          => a
+          -> CTerm sTerm a
+          -> CTerm (Scope () sTerm) a
+cAbstract1 a = cAbstract (\b -> if a == b then Just () else Nothing)
