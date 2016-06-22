@@ -97,16 +97,40 @@ bAbstract f = toScope . toScope . fmap go . fromScope
     go (F (f -> Just b)) = B b
     go v                 = F v
 
+bInstantiate :: forall f a b c. Monad f
+             => (b -> f a)
+             -> Scope c (Scope b f) a
+             -> Scope c f a
+bInstantiate f = Scope . fmap go . fromScope . fromScope
+  where
+    go :: Var b (Var c a) -> Var c (f a)
+    go (B b) = F (f b)
+    go (F v) = fmap return v
 
-cAbstract :: forall sTerm a b. (Monad sTerm)
+
+cAbstract :: forall sTerm a b. Monad sTerm
           => (a -> Maybe b)
           -> CTerm sTerm a
           -> CTerm (Scope b sTerm) a
 cAbstract f (STerm x) = STerm (abstract f x)
 cAbstract f (Lam x)   = Lam (bAbstract f x)
 
+cInstantiate :: forall sTerm a b. Monad sTerm
+             => (b -> sTerm a)
+             -> CTerm (Scope b sTerm) a
+             -> CTerm sTerm a
+cInstantiate f (STerm x) = STerm (instantiate f x)
+cInstantiate f (Lam x)   = Lam (bInstantiate f x)
+
+
 cAbstract1 :: (Monad sTerm, Eq a)
           => a
           -> CTerm sTerm a
           -> CTerm (Scope () sTerm) a
 cAbstract1 a = cAbstract (\b -> if a == b then Just () else Nothing)
+
+cInstantiate1 :: Monad sTerm
+              => sTerm a
+              -> CTerm (Scope () sTerm) a
+              -> CTerm sTerm a
+cInstantiate1 = cInstantiate . const
