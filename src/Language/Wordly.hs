@@ -1,10 +1,11 @@
-{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, ScopedTypeVariables, ViewPatterns #-}
+{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, RankNTypes, ScopedTypeVariables, ViewPatterns #-}
 module Language.Wordly where
 
 import Bound.Scope.Simple
 import Bound.Class
 import Bound.Var
 import Control.Monad
+import Control.Monad.Trans.Class
 import Data.Functor.Classes
 
 
@@ -24,7 +25,7 @@ data STerm a
 -- terms which are Checked against a type
 data CTerm sTerm a
   = STerm (sTerm a)
-  | Lam (Scope () sTerm a) -- ^ lambda abstraction
+  | Lam (CTerm (Scope () sTerm) a)  -- ^ lambda abstraction
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
 
@@ -40,7 +41,7 @@ instance Monad STerm where
 
 instance Bound CTerm where
   STerm x >>>= f = STerm (x >>= f)
-  Lam x   >>>= f = Lam (x >>>= f)
+  Lam x   >>>= f = Lam (x >>>= (lift . f))
 
 
 instance Eq1 STerm where
@@ -113,18 +114,28 @@ cAbstract1 :: forall sTerm a. (Monad sTerm, Eq a)
           => a
           -> CTerm sTerm a
           -> CTerm (Scope () sTerm) a
-cAbstract1 a (STerm x)       = STerm (abstract1 a x)
-cAbstract1 a (Lam (Scope x)) = Lam (Scope x')
+cAbstract1 = go abstract1
   where
-    x' :: Scope () sTerm (Var () a)
-    x' = abstract1 (F a) x
+    go :: forall f g u. Eq u
+       => (forall v. Eq v => v -> f v -> g v)
+       -> u -> CTerm f u -> CTerm g u
+    go f u (STerm x) = STerm (f u x)
+    go f u (Lam x)   = Lam (go f' u x)
+      where
+        f' :: Eq v => v -> Scope () f v -> Scope () g v
+        f' v = Scope . f (F v) . unscope
 
 cInstantiate1 :: forall sTerm b a. Monad sTerm
               => sTerm a
               -> CTerm (Scope b sTerm) a
               -> CTerm sTerm a
-cInstantiate1 r (STerm x)       = STerm (instantiate1 r x)
-cInstantiate1 r (Lam (Scope x)) = Lam (Scope x')
+cInstantiate1 = go instantiate1
   where
-    x' :: sTerm (Var () a)
-    x' = instantiate1 (fmap F r) x
+    go :: forall f g u
+        . (forall v. sTerm v -> f v -> g v)
+       -> sTerm u -> CTerm f u -> CTerm g u
+    go f su (STerm x) = STerm (f su x)
+    go f su (Lam x)   = Lam (go f' su x)
+      where
+        f' :: sTerm v -> Scope () f v -> Scope () g v
+        f' sv = Scope . f (fmap F sv) . unscope
