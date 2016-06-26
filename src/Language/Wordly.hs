@@ -109,29 +109,22 @@ bInstantiate f = Scope . instantiate f' . unscope
     f' = fmap F . f
 
 
-cAbstract :: forall sTerm a b. Monad sTerm
-          => (a -> Maybe b)
-          -> CTerm sTerm a
-          -> CTerm (Scope b sTerm) a
-cAbstract f (STerm x) = STerm (abstract f x)
-cAbstract f (Lam x)   = Lam (bAbstract f x)
-
-cInstantiate :: forall sTerm a b. Monad sTerm
-             => (b -> sTerm a)
-             -> CTerm (Scope b sTerm) a
-             -> CTerm sTerm a
-cInstantiate f (STerm x) = STerm (instantiate f x)
-cInstantiate f (Lam x)   = Lam (bInstantiate f x)
-
-
-cAbstract1 :: (Monad sTerm, Eq a)
+cAbstract1 :: forall sTerm a. (Monad sTerm, Eq a)
           => a
           -> CTerm sTerm a
           -> CTerm (Scope () sTerm) a
-cAbstract1 a = cAbstract (\b -> if a == b then Just () else Nothing)
+cAbstract1 a (STerm x)       = STerm (abstract1 a x)
+cAbstract1 a (Lam (Scope x)) = Lam (Scope x')
+  where
+    x' :: Scope () sTerm (Var () a)
+    x' = abstract1 (F a) x
 
-cInstantiate1 :: Monad sTerm
+cInstantiate1 :: forall sTerm b a. Monad sTerm
               => sTerm a
-              -> CTerm (Scope () sTerm) a
+              -> CTerm (Scope b sTerm) a
               -> CTerm sTerm a
-cInstantiate1 = cInstantiate . const
+cInstantiate1 r (STerm x)       = STerm (instantiate1 r x)
+cInstantiate1 r (Lam (Scope x)) = Lam (Scope x')
+  where
+    x' :: sTerm (Var () a)
+    x' = instantiate1 (fmap F r) x
