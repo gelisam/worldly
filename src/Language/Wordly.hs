@@ -1,7 +1,9 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, ScopedTypeVariables, ViewPatterns #-}
 module Language.Wordly where
 
-import Bound
+import Bound.Scope.Simple
+import Bound.Class
+import Bound.Var
 import Control.Monad
 import Data.Functor.Classes
 
@@ -91,21 +93,20 @@ bAbstract :: forall f a b c. Monad f
           => (a -> Maybe b)
           -> Scope c f a
           -> Scope c (Scope b f) a
-bAbstract f = toScope . toScope . fmap go . fromScope
+bAbstract f = Scope . abstract f' . unscope
   where
-    go :: Var c a -> Var b (Var c a)
-    go (F (f -> Just b)) = B b
-    go v                 = F v
+    f' :: Var c a -> Maybe b
+    f' (F a) = f a
+    f' _     = Nothing
 
 bInstantiate :: forall f a b c. Monad f
              => (b -> f a)
              -> Scope c (Scope b f) a
              -> Scope c f a
-bInstantiate f = Scope . fmap go . fromScope . fromScope
+bInstantiate f = Scope . instantiate f' . unscope
   where
-    go :: Var b (Var c a) -> Var c (f a)
-    go (B b) = F (f b)
-    go (F v) = fmap return v
+    f' :: b -> f (Var c a)
+    f' = fmap F . f
 
 
 cAbstract :: forall sTerm a b. Monad sTerm
