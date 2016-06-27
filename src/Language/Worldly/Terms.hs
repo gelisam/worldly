@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, RankNTypes, ScopedTypeVariables, ViewPatterns #-}
-module Language.Worldly where
+module Language.Worldly.Terms where
 
 import Bound.Scope.Simple
 import Bound.Class
