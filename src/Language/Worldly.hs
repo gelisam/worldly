@@ -90,26 +90,6 @@ instance Show1 sTerm => Show1 (CTerm sTerm) where
       app_prec = 10
 
 
-bAbstract :: forall f a b c. Monad f
-          => (a -> Maybe b)
-          -> Scope c f a
-          -> Scope c (Scope b f) a
-bAbstract f = Scope . abstract f' . unscope
-  where
-    f' :: Var c a -> Maybe b
-    f' (F a) = f a
-    f' _     = Nothing
-
-bInstantiate :: forall f a b c. Monad f
-             => (b -> f a)
-             -> Scope c (Scope b f) a
-             -> Scope c f a
-bInstantiate f = Scope . instantiate f' . unscope
-  where
-    f' :: b -> f (Var c a)
-    f' = fmap F . f
-
-
 cAbstract1 :: forall sTerm a. (Monad sTerm, Eq a)
           => a
           -> CTerm sTerm a
