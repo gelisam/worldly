@@ -119,3 +119,39 @@ cInstantiate1 = go instantiate1
       where
         f' :: sTerm v -> Scope () f v -> Scope () g v
         f' sv = Scope . f (fmap F sv) . unscope
+
+
+swapVars :: Var b1 (Var b2 a) -> Var b2 (Var b1 a)
+swapVars (B b1)     = F (B b1)
+swapVars (F (B b2)) = B b2
+swapVars (F (F x))  = F (F x)
+
+cScope :: forall sTerm b a. Functor sTerm
+       => CTerm sTerm (Var b a)
+       -> CTerm (Scope b sTerm) a
+cScope = go Scope
+  where
+    go :: forall f g u. Functor f
+       => (forall v. f (Var b v) -> g v)
+       -> CTerm f (Var b u) -> CTerm g u
+    go f (STerm x) = STerm (f x)
+    go f (Lam x)   = Lam (go f' x)
+      where
+        f' :: Scope () f (Var b v)
+           -> Scope () g v
+        f' = Scope . f . fmap swapVars . unscope
+
+cUnscope :: forall sTerm b a. Functor sTerm
+         => CTerm (Scope b sTerm) a
+         -> CTerm sTerm (Var b a)
+cUnscope = go unscope
+  where
+    go :: forall f g u. Functor g
+       => (forall v. f v -> g (Var b v))
+       -> CTerm f u -> CTerm g (Var b u)
+    go f (STerm x) = STerm (f x)
+    go f (Lam x)   = Lam (go f' x)
+      where
+        f' :: Scope () f v
+           -> Scope () g (Var b v)
+        f' = Scope . fmap swapVars . f . unscope
